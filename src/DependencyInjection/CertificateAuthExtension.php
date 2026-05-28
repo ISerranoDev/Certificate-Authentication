@@ -4,6 +4,7 @@ namespace CertificateAuthBundle\DependencyInjection;
 
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
+use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Reference;
 use CertificateAuthBundle\Security\CertificateAuthenticator;
 use CertificateAuthBundle\Security\CertificateChecker;
@@ -13,23 +14,45 @@ use CertificateAuthBundle\Controller\CertificateLoginController;
 use CertificateAuthBundle\Routing\CertificateAuthRoutingLoader;
 use CertificateAuthBundle\Transformer\PlainIdentifierTransformer;
 
-class CertificateAuthExtension extends Extension
+class CertificateAuthExtension extends Extension implements PrependExtensionInterface
 {
+    public function prepend(ContainerBuilder $container): void
+    {
+        // Prepend security configuration so the user doesn't have to
+        // manually configure the firewall, provider, etc.
+        // This runs BEFORE security extension processes its config,
+        // so parameters are not needed — we inject the config directly.
+
+        $configs = $container->getExtensionConfig($this->getAlias());
+        $configuration = new Configuration();
+        $config = $this->processConfiguration($configuration, $configs);
+
+        $container->prependExtensionConfig('security', [
+            'providers' => [
+                'certificate_auth_provider' => [
+                    'id' => 'certificate_auth.provider',
+                ],
+            ],
+            'firewalls' => [
+                'certificate_auth' => [
+                    'pattern' => '^/certificado',
+                    'user_checker' => 'certificate_auth.checker',
+                    'custom_authenticators' => [
+                        'certificate_auth.authenticator',
+                    ],
+                ],
+            ],
+        ]);
+    }
+
     public function load(array $configs, ContainerBuilder $container): void
     {
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
 
-        // Store config as parameters
-        $container->setParameter('certificate_auth.firewall_pattern', $config['firewall_pattern']);
+        // Store config as parameters (only those needed outside this extension)
         $container->setParameter('certificate_auth.login_route_path', $config['login_route_path']);
         $container->setParameter('certificate_auth.login_route_name', $config['login_route_name']);
-        $container->setParameter('certificate_auth.dashboard_route', $config['dashboard_route']);
-        $container->setParameter('certificate_auth.failure_route', $config['failure_route']);
-        $container->setParameter('certificate_auth.role_redirects', $config['role_redirects']);
-        $container->setParameter('certificate_auth.user_class', $config['user_class']);
-        $container->setParameter('certificate_auth.user_identifier_field', $config['user_identifier_field']);
-        $container->setParameter('certificate_auth.messages', $config['messages']);
 
         // Register identifier transformer: custom service or PlainIdentifierTransformer
         if ($config['identifier_transformer']) {

@@ -1,0 +1,3 @@
+certificate_auth:
+    resource: .
+    type: certificate_auth

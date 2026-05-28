@@ -13,12 +13,6 @@ class Configuration implements ConfigurationInterface
 
         $treeBuilder->getRootNode()
             ->children()
-                // Firewall config
-                ->scalarNode('firewall_pattern')
-                    ->defaultValue('^/certificado')
-                    ->info('URL pattern for the certificate firewall')
-                ->end()
-
                 // Route config
                 ->scalarNode('login_route_path')
                     ->defaultValue('/certificado/iniciar-sesion')
@@ -74,8 +68,7 @@ class Configuration implements ConfigurationInterface
                     ->info('Field name in the DN that contains the serial number')
                 ->end()
 
-                // Transformer: service ID that implements IdentifierTransformerInterface
-                // Allows the user to pass the identifier already encrypted/hashed/normalized
+                // Transformer
                 ->scalarNode('identifier_transformer')
                     ->defaultNull()
                     ->info('Service ID implementing IdentifierTransformerInterface. Transforms the raw certificate identifier before DB lookup. If null, the identifier is used as-is.')

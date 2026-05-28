@@ -1,0 +1,14 @@
+certificate_auth:
+    # REQUIRED: Your User entity class
+    user_class: App\Entity\User
+
+    # Field in the User entity to match the certificate serial number
+    # user_identifier_field: nif
+
+    # Routes for redirect after login
+    # dashboard_route: app_dashboard
+    # failure_route: app_login
+
+    # Service ID implementing IdentifierTransformerInterface
+    # to transform the identifier before DB lookup (hash, encrypt, etc.)
+    # identifier_transformer: App\Security\MyTransformer

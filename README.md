@@ -8,7 +8,11 @@ Bundle de Symfony para autenticación mediante certificados digitales X.509 (DNI
 composer require iserrano-dev/certificate-auth-bundle
 ```
 
-Si usas Symfony Flex, el bundle se registra automáticamente. Si no:
+Al instalar, el bundle crea automáticamente:
+- `config/packages/certificate_auth.yaml` — configuración del bundle
+- `config/routes/certificate_auth.yaml` — registro de rutas
+
+Si usas Symfony Flex, el bundle se registra automáticamente. Si no, añádelo manualmente:
 
 ```php
 // config/bundles.php
@@ -20,21 +24,59 @@ return [
 
 ## Configuración
 
-Crea `config/packages/certificate_auth.yaml`:
+Edita `config/packages/certificate_auth.yaml` (creado automáticamente):
 
 ```yaml
 certificate_auth:
-
     # REQUERIDO: tu clase de entidad User
     user_class: App\Entity\User\User
 
     # Campo de la entidad para buscar por el serial del certificado (default: nif)
+    # user_identifier_field: nif
+
+    # Rutas de redirección (opcionales, tienen valores por defecto)
+    # dashboard_route: app_dashboard
+    # failure_route: app_login
+
+    # Service ID que transforma el identificador antes de buscarlo en BD
+    # identifier_transformer: App\Security\MyTransformer
+```
+
+El único parámetro obligatorio es `user_class`. Todo lo demás tiene valores por defecto razonables.
+
+## Configuración automática de Security
+
+El bundle **registra automáticamente** el firewall, el provider y el checker en `security.yaml` mediante `PrependExtensionInterface`. No necesitas añadir nada manualmente en `security.yaml`.
+
+El bundle inyecta esta configuración:
+
+```yaml
+# Esto lo hace el bundle automáticamente, NO lo añadas tú
+security:
+    providers:
+        certificate_auth_provider:
+            id: certificate_auth.provider
+    firewalls:
+        certificate_auth:
+            pattern: ^/certificado
+            user_checker: certificate_auth.checker
+            custom_authenticators:
+                - certificate_auth.authenticator
+```
+
+Si necesitas personalizar el firewall (por ejemplo, cambiar el pattern), puedes sobreescribirlo en tu propio `security.yaml`, ya que la configuración del bundle se inyecta con `prependExtensionConfig` (menor prioridad que tu config).
+
+## Configuración completa (referencia)
+
+```yaml
+certificate_auth:
+    # REQUERIDO
+    user_class: App\Entity\User\User
+
+    # Campo de búsqueda (default: nif)
     user_identifier_field: nif
 
-    # Patrón del firewall (default: ^/certificado)
-    firewall_pattern: '^/certificado'
-
-    # Ruta y nombre de la ruta de login por certificado
+    # Ruta de login por certificado
     login_route_path: '/certificado/iniciar-sesion'
     login_route_name: 'certificate_auth_login'
 
@@ -42,82 +84,38 @@ certificate_auth:
     dashboard_route: app_dashboard
     failure_route: app_login
 
-    # Redirecciones por rol (opcional)
+    # Redirecciones por rol
     role_redirects:
         ROLE_BASCULISTA: basculista_dis_list
         ROLE_ADMIN: admin_panel
 
-    # Service ID que transforma el identificador antes de buscarlo en BD
-    # (ver sección "Transformación del identificador")
+    # Transformer del identificador
     identifier_transformer: null
 
-    # Verificar si el usuario está habilitado (default: true)
-    check_user_enabled: true
-    user_disabled_message: 'Tu usuario ha sido desactivado.'
-
-    # Headers SSL (configurar según tu servidor web)
+    # Headers SSL
     ssl_client_verify_header: SSL_CLIENT_VERIFY
     ssl_client_dn_header: SSL_CLIENT_S_DN
 
-    # Parseo del DN del certificado
+    # Parseo del DN
     serial_number_prefix: 'IDCES-'
     dn_serial_field: serialNumber
 
-    # Mensajes personalizables
+    # Verificación de usuario
+    check_user_enabled: true
+    user_disabled_message: 'Tu usuario ha sido desactivado.'
+
+    # Mensajes
     messages:
         no_certificate: 'No se ha encontrado ningún certificado.'
         no_user_found: 'No se han encontrado usuarios relacionados con sus certificados.'
         invalid_certificate: 'El certificado no es válido.'
 ```
 
-## Configuración de Security
-
-En `config/packages/security.yaml`:
-
-```yaml
-security:
-    providers:
-        certificate_provider:
-            id: certificate_auth.provider
-
-    firewalls:
-        cert:
-            pattern: '%certificate_auth.firewall_pattern%'
-            user_checker: certificate_auth.checker
-            x509:
-                provider: certificate_provider
-                user: "SSL_CLIENT_S_DN"
-            custom_authenticators:
-                - certificate_auth.authenticator
-```
-
-## Registro de rutas
-
-En `config/routes.yaml`:
-
-```yaml
-certificate_auth:
-    resource: .
-    type: certificate_auth
-```
-
 ## Transformación del identificador
 
-El bundle extrae el número de serie del certificado (por ejemplo, un NIF como `12345678A`) y necesita buscarlo en tu base de datos. El problema es que cada aplicación puede almacenar ese valor de forma diferente: en texto plano, hasheado con SHA-256, encriptado con un servicio propio, etc.
-
-Para resolver esto, el bundle permite configurar un **transformer**: un servicio que recibe el identificador en crudo y devuelve el valor tal como está almacenado en tu BD.
-
-### Sin transformer (por defecto)
-
-Si `identifier_transformer` es `null`, el bundle busca el NIF tal cual en la base de datos. Esto funciona si guardas el NIF en texto plano.
-
-```
-Certificado: "12345678A" → BD busca: "12345678A"
-```
+Por defecto, el bundle busca el identificador del certificado (NIF, etc.) directamente en la base de datos sin transformarlo.
 
 ### Con transformer personalizado
-
-Implementa `IdentifierTransformerInterface`:
 
 ```php
 namespace App\Security;
@@ -138,13 +136,7 @@ certificate_auth:
     identifier_transformer: App\Security\Sha256Transformer
 ```
 
-```
-Certificado: "12345678A" → transform() → "a1b2c3..." → BD busca: "a1b2c3..."
-```
-
-### Con EncryptBundle
-
-Si usas `iserrano-dev/encrypt-bundle` u otro servicio de encriptación, crea un adaptador:
+### Con EncryptBundle u otro servicio
 
 ```php
 namespace App\Security;
@@ -165,28 +157,22 @@ class EncryptTransformer implements IdentifierTransformerInterface
 }
 ```
 
-```yaml
-certificate_auth:
-    identifier_transformer: App\Security\EncryptTransformer
-```
-
-### Con cualquier otro servicio
-
-El patrón es siempre el mismo: implementas la interfaz, inyectas lo que necesites, y le dices al bundle qué servicio usar. El bundle no sabe ni le importa cómo transformas el dato.
-
-```php
-class HmacTransformer implements IdentifierTransformerInterface
-{
-    public function __construct(private string $secret) {}
-
-    public function transform(string $identifier): string
-    {
-        return hash_hmac('sha256', $identifier, $this->secret);
-    }
-}
-```
-
 ## Configuración del servidor web
+
+### Apache
+
+```apache
+SSLCACertificateFile /path/to/FNMT_CA_bundle.crt
+
+<Location /certificado/iniciar-sesion>
+    SSLVerifyClient require
+    SSLVerifyDepth 5
+</Location>
+
+<Location /cerrar-sesion>
+    SSLVerifyClient none
+</Location>
+```
 
 ### Nginx + PHP-FPM
 
@@ -194,9 +180,7 @@ class HmacTransformer implements IdentifierTransformerInterface
 server {
     listen 443 ssl;
 
-    ssl_certificate         /path/to/server.crt;
-    ssl_certificate_key     /path/to/server.key;
-    ssl_client_certificate  /path/to/ca-bundle.crt;
+    ssl_client_certificate  /path/to/FNMT_CA_bundle.crt;
     ssl_verify_client       optional;
 
     location /certificado {
@@ -208,16 +192,6 @@ server {
         fastcgi_param SCRIPT_FILENAME $document_root/index.php;
     }
 }
-```
-
-### Apache
-
-```apache
-<Location /certificado>
-    SSLVerifyClient optional
-    SSLVerifyDepth 2
-    SSLOptions +StdEnvVars
-</Location>
 ```
 
 ## Extensibilidad
@@ -240,17 +214,7 @@ class CustomCertificateChecker extends BaseChecker
 }
 ```
 
-Regístralo en `security.yaml`:
-
-```yaml
-firewalls:
-    cert:
-        user_checker: App\Security\CustomCertificateChecker
-```
-
 ### Personalizar el extractor de datos del certificado
-
-Si tu certificado tiene un formato de DN diferente, extiende `CertificateDataExtractor`:
 
 ```php
 namespace App\Security;
@@ -267,6 +231,20 @@ class CustomDataExtractor extends BaseExtractor
 }
 ```
 
+### Sobreescribir el firewall
+
+Si el pattern `^/certificado` no te sirve, simplemente define tu firewall en `security.yaml` con la misma key `certificate_auth` y tu config tendrá prioridad:
+
+```yaml
+security:
+    firewalls:
+        certificate_auth:
+            pattern: ^/mi-ruta-custom
+            user_checker: certificate_auth.checker
+            custom_authenticators:
+                - certificate_auth.authenticator
+```
+
 ## Servicios registrados
 
 | Service ID | Clase |
@@ -276,7 +254,6 @@ class CustomDataExtractor extends BaseExtractor
 | `certificate_auth.checker` | `CertificateChecker` |
 | `certificate_auth.data_extractor` | `CertificateDataExtractor` |
 | `certificate_auth.login_controller` | `CertificateLoginController` |
-| `certificate_auth.plain_transformer` | `PlainIdentifierTransformer` (solo si no se configura `identifier_transformer`) |
 
 ## Requisitos
 
