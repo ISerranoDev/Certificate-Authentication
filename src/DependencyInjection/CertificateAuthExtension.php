@@ -33,15 +33,6 @@ class CertificateAuthExtension extends Extension implements PrependExtensionInte
                     'id' => 'certificate_auth.provider',
                 ],
             ],
-            'firewalls' => [
-                'certificate_auth' => [
-                    'pattern' => '^/certificado',
-                    'user_checker' => 'certificate_auth.checker',
-                    'custom_authenticators' => [
-                        'certificate_auth.authenticator',
-                    ],
-                ],
-            ],
         ]);
     }
 
