@@ -1,0 +1,30 @@
+{
+    "name": "iserrano-dev/certificate-auth-bundle",
+    "description": "Symfony bundle for X.509 client certificate authentication with configurable user lookup, pluggable hashing, and role-based redirects.",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "ISerranoDev"
+        }
+    ],
+    "require": {
+        "php": ">=8.1",
+        "symfony/framework-bundle": "^6.0|^7.0",
+        "symfony/security-bundle": "^6.0|^7.0",
+        "doctrine/orm": "^2.14|^3.0",
+        "doctrine/doctrine-bundle": "^2.7"
+    },
+    "autoload": {
+        "psr-4": {
+            "CertificateAuthBundle\\": "src/"
+        }
+    },
+    "extra": {
+        "symfony": {
+            "bundles": {
+                "CertificateAuthBundle\\CertificateAuthBundle": ["all"]
+            }
+        }
+    }
+}
