@@ -56,7 +56,7 @@ class ConfigPlugin implements PluginInterface, EventSubscriberInterface
 
     private function isThisPackage(string $packageName): bool
     {
-        return $packageName === 'iserrano-dev/certificate-auth-bundle';
+        return $packageName === 'iserranodev/certificate-auth-bundle';
     }
 
     private function createConfigFiles(): void
