@@ -5,7 +5,7 @@ Bundle de Symfony para autenticación mediante certificados digitales X.509 (DNI
 ## Instalación
 
 ```bash
-composer require iserrano-dev/certificate-auth-bundle
+composer require iserranodev/certificate-auth-bundle
 ```
 
 Al instalar, el bundle crea automáticamente:
