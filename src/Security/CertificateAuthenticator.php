@@ -60,7 +60,7 @@ class CertificateAuthenticator extends AbstractAuthenticator
             throw new CustomUserMessageAuthenticationException($this->messages['no_user_found']);
         }
 
-        return new SelfValidatingPassport(new UserBadge($user->getUserIdentifier()));
+        return new SelfValidatingPassport(new UserBadge($user->getUserIdentifier(), fn() => $user));
     }
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
